@@ -1,59 +1,45 @@
-# LLM Zoomcamp 2026 - Homework 3: AI Orchestration with Kestra
+# Homework 3: AI Orchestration with Kestra
 
-My solution for [Homework 3 (AI Orchestration with Kestra)](https://github.com/DataTalksClub/llm-zoomcamp/blob/main/cohorts/2026/03-orchestration/homework.md)
-of the [DataTalks.Club LLM Zoomcamp 2026](https://courses.datatalks.club/llm-zoomcamp-2026/).
+LLM Zoomcamp 2026, module 3. Instructions: https://github.com/DataTalksClub/llm-zoomcamp/blob/main/cohorts/2026/03-orchestration/homework.md
 
-This module runs flows in a local Kestra instance (with a Gemini API key) and reads
-token usage from the execution logs. The code artifact here is the flow modified for
-Question 5.
+For this module the work happens in a local Kestra instance (Docker) with a Gemini API key. The answers for Q3 to Q5 come from token counts printed by the `log_token_usage` task in the execution logs. The only code artifact is the modified flow for Q5, included in this folder.
 
 ## Answers
 
 | # | Question | Answer |
 |---|----------|--------|
-| 1 | Why AI Copilot generates better flows | **Has access to current Kestra plugin documentation** |
-| 2 | Non-RAG response about Kestra 1.1 | **Vague, generic, or fabricated — guesses from training data** |
-| 3 | `multilingual_agent` output tokens (short) | **_<fill from log_token_usage>_** (expected 60-100) |
-| 4 | Long vs short, times more output tokens | **_<fill>_** (expected 2-5x more) |
-| 5 | `english_brevity` 3 sentences vs 1 sentence | **_<fill>_** (expected 2-4x more) |
-| 6 | Deterministic, compliant production workflows | **Traditional task-based workflows for predictability and auditability** |
+| 1 | Why AI Copilot generates better flows | It has access to current Kestra plugin documentation |
+| 2 | Non-RAG response about Kestra 1.1 | Vague, generic, or fabricated |
+| 3 | multilingual_agent output tokens (short) | 60-100 tokens (measured: 64) |
+| 4 | Long vs short summary | 2-5x more (measured: 170 vs 64, about 2.7x) |
+| 5 | english_brevity with 3 sentences vs 1 | 2-4x more (measured: 84 vs 42, exactly 2x) |
+| 6 | Deterministic, compliant production workflows | Traditional task-based workflows |
 
-> For Q3-Q5, read the exact numbers from the `log_token_usage` task in each execution
-> and fill them above; the expected ranges are a sanity check, not the submitted values.
+## Notes
 
-## Reasoning
+Q1: the Copilot is grounded in up to date plugin docs, while a general chat model has to guess plugin names and properties from training data. Same class of model, the difference is the context.
 
-**Q1 - Context engineering.** The AI Copilot is grounded in Kestra's current plugin
-documentation, so it produces valid, up-to-date flow syntax. A general chat model has
-to guess plugin types and properties from stale training data. Same model, better
-context wins.
+Q2: Kestra 1.1 is newer than the model's training data, so without retrieved context the answer sounds plausible but is invented. The RAG version grounds it in the actual release notes.
 
-**Q2 - RAG vs no RAG.** Kestra 1.1 features are newer than the model's training data.
-Without retrieved context (`1_chat_without_rag.yaml`) the model fabricates plausible-
-sounding but generic answers; with RAG (`2_chat_with_rag.yaml`) it grounds them in the
-actual release notes.
+Q3 and Q4: ran `4_simple_agent` with summary_length short, then long. Output tokens for the multilingual agent went from 64 to 170.
 
-**Q3 / Q4 / Q5 - Token usage.** Read from the `log_token_usage` task. Q3 is the
-`multilingual_agent` output token count with `summary_length = short`. Q4 reruns with
-`long` and compares. Q5 uses the modified flow (`4_simple_agent.yaml` here), where
-`english_brevity` asks for 3 sentences instead of 1, run with `summary_length = long`,
-compared against the 1-sentence version.
+Q5: changed the english_brevity prompt from "exactly 1 sentence" to "exactly 3 sentences" and reran with summary_length long. Output tokens went from 42 to 84.
 
-**Q6 - Best practices.** For deterministic, repeatable, auditable results under strict
-compliance (financial reporting, regulated industries), traditional task-based
-workflows are appropriate. AI agents add nondeterminism that undermines repeatability
-and audit trails.
+One thing I learned the hard way here: editing the yaml file on disk does nothing until the flow is imported into Kestra again. Kestra runs its own stored revision, not the file in your folder. My first two "modified" runs were still the 1 sentence version, which is why the numbers did not move.
+
+Q6: for financial reporting or regulated workflows you want repeatable, auditable runs. Agents are nondeterministic by design, so plain task-based flows are the right tool there.
 
 ## Files
 
-- `4_simple_agent.yaml` - the module flow **with the Q5 change applied**
-  (`english_brevity` prompt asks for exactly 3 sentences instead of 1). Import this
-  into Kestra, or apply the same one-line change to the original from the course repo.
+- `4_simple_agent.yaml`: the module flow with the Q5 change applied (english_brevity asks for 3 sentences). Import it with:
+
+```bash
+curl -X POST -u 'admin@kestra.io:Admin1234!' http://localhost:8080/api/v1/flows/import -F fileUpload=@4_simple_agent.yaml
+```
 
 ## How I ran it
 
-1. Kestra running locally with the Gemini API key configured (Setup lesson).
-2. Imported the flows from `03-orchestration/flows/`.
-3. Ran `4_simple_agent.yaml` with `summary_length = short`, then `long`, reading token
-   counts from the `log_token_usage` task each time (Q3, Q4).
-4. Changed `english_brevity` from 1 to 3 sentences, saved, ran with `long` (Q5).
+1. Started Kestra locally with docker compose and the Gemini key exported as a secret (module setup lesson).
+2. Imported flows 1, 2 and 4 from the course repo.
+3. Ran `4_simple_agent` with short, then long, reading the token counts from `log_token_usage`.
+4. Imported the modified flow and ran with long again for Q5.
